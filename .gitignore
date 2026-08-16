@@ -1,0 +1,19 @@
+# Build and bin outputs
+bin/
+obj/
+publish/
+
+# SQLite Database
+*.db
+*.db-wal
+*.db-shm
+
+# Uploaded 250MB binary updates (exclude from git tracking)
+wwwroot/updates/*
+!wwwroot/updates/.gitkeep
+
+# IDE & User settings
+.vs/
+.idea/
+*.user
+*.suo
