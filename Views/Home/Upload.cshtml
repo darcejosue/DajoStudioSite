@@ -1,0 +1,119 @@
+@model DajoStudio.UpdateServer.Models.UploadUpdateViewModel
+@{
+    ViewData["Title"] = "Subir Actualización";
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="d-flex align-items-center mb-4">
+            <a asp-action="Index" class="btn-secondary-custom me-3">
+                <i class="bi bi-arrow-left"></i> Volver al Dashboard
+            </a>
+            <div>
+                <h1 class="h3 fw-bold text-dark mb-0">Subir Nueva Actualización</h1>
+                <p class="text-muted mb-0 small">Soporta ejecutables e instaladores de hasta 1 GB (~250 MB sugerido)</p>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <form id="uploadForm" method="post" enctype="multipart/form-data">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label asp-for="Version" class="form-label fw-semibold text-dark">Número de Versión <span class="text-danger">*</span></label>
+                        <input asp-for="Version" class="form-control-custom" placeholder="ej. 1.2.5 o 2.0.0" required />
+                        <span asp-validation-for="Version" class="text-danger small"></span>
+                        <div class="form-text text-muted">Formato SemVer (ej. 1.0.4).</div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="Title" class="form-label fw-semibold text-dark">Título de la Actualización <span class="text-danger">*</span></label>
+                        <input asp-for="Title" class="form-control-custom" placeholder="ej. Actualización POS v1.2.5 - Parche de Rendimiento" required />
+                        <span asp-validation-for="Title" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label asp-for="ReleaseNotes" class="form-label fw-semibold text-dark">Notas de la Versión / Cambios</label>
+                    <textarea asp-for="ReleaseNotes" class="form-control-custom" rows="3" placeholder="- Corregido error en impresoras&#10;- Mejorado rendimiento en búsquedas&#10;- Nuevos reportes"></textarea>
+                </div>
+
+                <!-- Drag & Drop Zone -->
+                <div class="mb-4">
+                    <label class="form-label fw-semibold text-dark">Archivo Instalador (.exe, .zip, .msi) <span class="text-danger">*</span></label>
+                    <input type="file" id="fileInput" name="File" class="d-none" accept=".exe,.zip,.msi,.tar.gz,.rar" required />
+
+                    <div id="uploadDropzone" class="upload-dropzone">
+                        <i class="bi bi-cloud-arrow-up upload-icon"></i>
+                        <h4 class="fw-bold text-dark mb-1">Arrastra tu instalador (~250 MB) aquí</h4>
+                        <p class="text-muted mb-3">O haz clic para explorar en tu equipo</p>
+                        <span class="btn-primary-glow">
+                            <i class="bi bi-folder2-open me-1"></i> Seleccionar Archivo
+                        </span>
+                    </div>
+
+                    <!-- File Info Card (Selected State) -->
+                    <div id="fileInfoCard" class="glass-card d-flex align-items-center justify-content-between p-3" style="display: none !important; border-color: var(--brand-blue);">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="brand-icon">
+                                <i class="bi bi-file-earmark-zip-fill"></i>
+                            </div>
+                            <div>
+                                <div id="fileNameDisplay" class="fw-bold text-dark">archivo.exe</div>
+                                <div id="fileSizeDisplay" class="text-primary small mono fw-semibold">0 MB</div>
+                            </div>
+                        </div>
+                        <button type="button" id="removeFileBtn" class="btn-secondary-custom text-danger" title="Quitar archivo">
+                            <i class="bi bi-x-lg"></i> Cambiar Archivo
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mandatory Checkbox -->
+                <div class="form-check form-switch mb-4 p-3 rounded border bg-light">
+                    <input asp-for="IsMandatory" class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="mandatoryCheck" style="transform: scale(1.2);">
+                    <label class="form-check-label fw-semibold text-dark" for="mandatoryCheck">
+                        Marcar como Actualización Obligatoria
+                    </label>
+                    <div class="form-text text-muted ms-4">Obliga al cliente a actualizar antes de continuar usando el sistema.</div>
+                </div>
+
+                <!-- Real-time Progress Container -->
+                <div id="progressBox" class="progress-box" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="fw-semibold text-dark">
+                            <i class="bi bi-cloud-arrow-up-fill text-primary me-2"></i> Subiendo Instalador al Servidor...
+                        </div>
+                        <div id="progressPercentage" class="mono fw-bold text-primary">0%</div>
+                    </div>
+
+                    <div class="progress-bar-bg mb-2">
+                        <div id="progressBarFill" class="progress-bar-fill"></div>
+                    </div>
+
+                    <div class="d-flex justify-content-between text-muted small mono">
+                        <span id="progressTransferred">0 MB / 0 MB</span>
+                        <span id="progressSpeed">0 MB/s</span>
+                        <span id="progressTimeRemaining">Calculando tiempo...</span>
+                    </div>
+                </div>
+
+                <!-- Status Messages -->
+                <div id="statusMessage" style="display: none;"></div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a asp-action="Index" class="btn-secondary-custom">Cancelar</a>
+                    <button type="submit" id="submitBtn" class="btn-primary-glow">
+                        <i class="bi bi-cloud-arrow-up-fill me-1"></i> Publicar Actualización
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/upload.js" asp-append-version="true"></script>
+}

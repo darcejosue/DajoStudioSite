@@ -1,0 +1,67 @@
+@model DajoStudio.UpdateServer.Models.UpdateRelease
+@{
+    Layout = "_PublicLayout";
+    ViewData["Title"] = $"{Model.Title} - v{Model.Version}";
+    string directDownloadUrl = Url.Action("DownloadFile", "UpdatesApi", new { fileName = Model.FileName }, Context.Request.Scheme) 
+                              ?? $"/api/updates/download/{Model.FileName}";
+}
+
+
+<div class="row justify-content-center py-3">
+    <div class="col-lg-8">
+        <!-- Download Header Card -->
+        <div class="glass-card mb-4 text-center p-4 p-md-5">
+            <div class="brand-icon mx-auto mb-3" style="width: 70px; height: 70px; font-size: 2.2rem; background: var(--brand-blue);">
+                <i class="bi bi-cloud-arrow-down-fill"></i>
+            </div>
+
+            <span class="badge bg-primary px-3 py-1 fs-6 fw-bold mb-2">Versión @Model.Version</span>
+            <h1 class="h2 fw-bold text-dark mb-2">@Model.Title</h1>
+            <p class="text-muted mb-4">Servidor Oficial de Actualizaciones del Sistema &bull; Publicado el @Model.CreatedUtc.ToLocalTime().ToString("dd/MM/yyyy")</p>
+
+            <!-- Prominent Download Button -->
+            <div class="d-flex flex-column align-items-center justify-content-center gap-2 mb-4">
+                <a href="@directDownloadUrl" class="btn-green-custom px-5 py-3 fs-5 shadow-lg fw-bold rounded-pill">
+                    <i class="bi bi-download me-2"></i> Descargar Instalador (@Model.FormattedSize)
+                </a>
+                <span class="text-muted small"><i class="bi bi-shield-check text-success me-1"></i> Descarga directa y segura verificada por servidor</span>
+            </div>
+
+            <div class="d-flex justify-content-center gap-4 flex-wrap text-muted small pt-3 border-top">
+                <div><i class="bi bi-hdd-fill text-primary me-1"></i> Tamaño: <strong class="text-dark">@Model.FormattedSize</strong></div>
+                <div><i class="bi bi-file-earmark-code me-1"></i> Archivo: <strong class="text-dark">@Model.FileName</strong></div>
+                <div><i class="bi bi-download me-1"></i> Descargas: <strong class="text-dark">@Model.DownloadCount</strong></div>
+            </div>
+        </div>
+
+        <!-- Release Notes & Integrity Card -->
+        <div class="glass-card mb-4">
+            <h3 class="h5 fw-bold text-dark mb-3">
+                <i class="bi bi-journal-text text-primary me-2"></i> Notas de la Versión & Cambios
+            </h3>
+            
+            @if (!string.IsNullOrWhiteSpace(Model.ReleaseNotes))
+            {
+                <div class="p-3 bg-light rounded border mb-4 text-dark" style="white-space: pre-line; line-height: 1.6;">
+                    @Model.ReleaseNotes
+                </div>
+            }
+            else
+            {
+                <p class="text-muted italic mb-4">No se especificaron notas adicionales para esta versión.</p>
+            }
+
+            <h3 class="h5 fw-bold text-dark mb-2">
+                <i class="bi bi-shield-lock-fill text-success me-2"></i> Verificación de Integridad SHA256
+            </h3>
+            <p class="text-muted small mb-2">Puedes comparar este código hash para verificar la autenticidad del instalador descargado:</p>
+            
+            <div class="input-group">
+                <input type="text" value="@Model.Sha256Hash" class="form-control-custom mono text-primary fw-bold" readonly />
+                <button class="btn btn-primary px-3 fw-bold" type="button" onclick="copyToClipboard('@Model.Sha256Hash', this)">
+                    <i class="bi bi-clipboard me-1"></i> Copiar Hash
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,11 @@
+d:\proyectos\DajoStudio\ClientUpdater\bin\Debug\net10.0\ClientUpdater.deps.json
+d:\proyectos\DajoStudio\ClientUpdater\bin\Debug\net10.0\ClientUpdater.dll
+d:\proyectos\DajoStudio\ClientUpdater\bin\Debug\net10.0\ClientUpdater.pdb
+d:\proyectos\DajoStudio\ClientUpdater\obj\Debug\net10.0\ClientUpdater.GeneratedMSBuildEditorConfig.editorconfig
+d:\proyectos\DajoStudio\ClientUpdater\obj\Debug\net10.0\ClientUpdater.AssemblyInfoInputs.cache
+d:\proyectos\DajoStudio\ClientUpdater\obj\Debug\net10.0\ClientUpdater.AssemblyInfo.cs
+d:\proyectos\DajoStudio\ClientUpdater\obj\Debug\net10.0\ClientUpdater.csproj.CoreCompileInputs.cache
+d:\proyectos\DajoStudio\ClientUpdater\obj\Debug\net10.0\ClientUpdater.dll
+d:\proyectos\DajoStudio\ClientUpdater\obj\Debug\net10.0\refint\ClientUpdater.dll
+d:\proyectos\DajoStudio\ClientUpdater\obj\Debug\net10.0\ClientUpdater.pdb
+d:\proyectos\DajoStudio\ClientUpdater\obj\Debug\net10.0\ref\ClientUpdater.dll

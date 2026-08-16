@@ -1,0 +1,251 @@
+@model IEnumerable<DajoStudio.UpdateServer.Models.UpdateRelease>
+@{
+    ViewData["Title"] = "Dashboard de Actualizaciones";
+    long totalSizeBytes = ViewBag.TotalSizeBytes ?? 0;
+    int totalDownloads = ViewBag.TotalDownloads ?? 0;
+    var latestRelease = ViewBag.LatestRelease as DajoStudio.UpdateServer.Models.UpdateRelease;
+    double totalGB = totalSizeBytes / (1024.0 * 1024.0 * 1024.0);
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h1 class="h2 fw-bold text-dark mb-1">Gestor de Actualizaciones del Sistema</h1>
+        <p class="text-muted mb-0">Servidor para alojar y servir instaladores pesados (~250 MB+) de forma segura.</p>
+    </div>
+    <a asp-controller="Home" asp-action="Upload" class="btn-primary-glow">
+        <i class="bi bi-cloud-upload-fill me-1"></i> Subir Nueva Versión
+    </a>
+</div>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="glass-card stat-card">
+        <div class="stat-icon blue">
+            <i class="bi bi-layers-fill"></i>
+        </div>
+        <div>
+            <div class="stat-value">@Model.Count()</div>
+            <div class="stat-label">Versiones Publicadas</div>
+        </div>
+    </div>
+    
+    <div class="glass-card stat-card">
+        <div class="stat-icon green">
+            <i class="bi bi-disc-fill"></i>
+        </div>
+        <div>
+            <div class="stat-value">@(latestRelease != null ? $"v{latestRelease.Version}" : "N/A")</div>
+            <div class="stat-label">Última Versión Activa</div>
+        </div>
+    </div>
+
+    <div class="glass-card stat-card">
+        <div class="stat-icon black">
+            <i class="bi bi-hdd-fill"></i>
+        </div>
+        <div>
+            <div class="stat-value">@totalGB.ToString("F2") GB</div>
+            <div class="stat-label">Almacenamiento Usado</div>
+        </div>
+    </div>
+
+    <div class="glass-card stat-card">
+        <div class="stat-icon red">
+            <i class="bi bi-download"></i>
+        </div>
+        <div>
+            <div class="stat-value">@totalDownloads</div>
+            <div class="stat-label">Descargas Totales</div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Releases Table Card -->
+<div class="glass-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h5 fw-bold text-dark mb-0">
+            <i class="bi bi-clock-history me-2 text-primary"></i>Historial de Publicaciones
+        </h2>
+        <span class="text-muted small">Total: @Model.Count() versiones</span>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="text-center py-5">
+            <i class="bi bi-box-seam display-1 text-muted d-block mb-3"></i>
+            <h4 class="text-dark fw-bold">No hay ninguna actualización en el servidor</h4>
+            <p class="text-muted mb-4">Comienza subiendo el instalador de tu sistema (~250 MB).</p>
+            <a asp-action="Upload" class="btn-primary-glow">
+                <i class="bi bi-plus-lg me-1"></i> Subir Primera Versión
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>Versión</th>
+                        <th>Título / Descripción</th>
+                        <th>Tamaño</th>
+                        <th>Checksum SHA256</th>
+                        <th>Obligatoria</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var release in Model)
+                    {
+                        string landingPageUrl = $"{Context.Request.Scheme}://{Context.Request.Host}/Download/{release.Version}";
+                        string directDownloadUrl = $"{Context.Request.Scheme}://{Context.Request.Host}/api/updates/download/{release.FileName}";
+                        
+                        <tr>
+                            <td>
+                                <a asp-controller="Home" asp-action="DownloadPage" asp-route-version="@release.Version" 
+                                   class="badge bg-primary px-2 py-1 fs-6 fw-bold text-decoration-none" title="Ver página de descarga">
+                                    v@release.Version
+                                </a>
+                            </td>
+                            <td>
+                                <a asp-controller="Home" asp-action="DownloadPage" asp-route-version="@release.Version" 
+                                   class="fw-bold text-dark text-decoration-none hover-primary">
+                                    @release.Title
+                                </a>
+                                @if (!string.IsNullOrEmpty(release.ReleaseNotes))
+                                {
+                                    <div class="text-muted small text-truncate" style="max-width: 250px;">@release.ReleaseNotes</div>
+                                }
+                            </td>
+                            <td class="mono fw-bold text-primary">
+                                @release.FormattedSize
+                            </td>
+                            <td>
+                                <div class="hash-pill" title="Hash SHA256">
+                                    <span class="mono">@release.Sha256Hash.Substring(0, 8)...@release.Sha256Hash.Substring(release.Sha256Hash.Length - 6)</span>
+                                    <button type="button" onclick="copyToClipboard('@release.Sha256Hash', this)" title="Copiar Hash SHA256">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td>
+                                @if (release.IsMandatory)
+                                {
+                                    <span class="badge-custom badge-mandatory"><i class="bi bi-exclamation-octagon-fill"></i> Sí</span>
+                                }
+                                else
+                                {
+                                    <span class="badge-custom badge-optional">Opcional</span>
+                                }
+                            </td>
+                            <td>
+                                @if (release.IsActive)
+                                {
+                                    <span class="badge-custom badge-active"><i class="bi bi-check-circle-fill"></i> Activa</span>
+                                }
+                                else
+                                {
+                                    <span class="badge-custom badge-inactive"><i class="bi bi-pause-circle-fill"></i> Inactiva</span>
+                                }
+                            </td>
+                            <td class="text-muted small">
+                                @release.CreatedUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                            </td>
+                            <td>
+                                <div class="d-flex justify-content-end gap-1">
+                                    <!-- Share Link Button -->
+                                    <button type="button" class="btn-secondary-custom" title="Compartir página de descarga" 
+                                            onclick="openShareModal('v@release.Version', '@release.Title', '@landingPageUrl', '@directDownloadUrl', '@release.FormattedSize', '@release.Sha256Hash')">
+                                        <i class="bi bi-share-fill text-primary"></i>
+                                    </button>
+
+                                    <!-- Download Button -->
+                                    <a asp-controller="UpdatesApi" asp-action="DownloadFile" asp-route-fileName="@release.FileName" 
+                                       class="btn-green-custom" title="Descargar paquete directamente">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+
+                                    <!-- Toggle Active Button -->
+                                    <form asp-action="ToggleActive" method="post" style="display:inline;">
+                                        <input type="hidden" name="id" value="@release.Id" />
+                                        <button type="submit" class="btn-secondary-custom" title="@(release.IsActive ? "Desactivar versión" : "Activar versión")">
+                                            <i class="bi @(release.IsActive ? "bi-eye-slash text-warning" : "bi-eye text-success")"></i>
+                                        </button>
+                                    </form>
+
+                                    <!-- Delete Button -->
+                                    <form asp-action="Delete" method="post" style="display:inline;" onsubmit="return confirm('¿Estás seguro de eliminar la versión v@release.Version? El archivo de @release.FormattedSize será borrado del disco.');">
+                                        <input type="hidden" name="id" value="@release.Id" />
+                                        <button type="submit" class="btn-secondary-custom text-danger" title="Eliminar versión">
+                                            <i class="bi bi-trash3 text-danger"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<!-- Share Link Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title fw-bold text-dark" id="shareModalLabel">
+                    <i class="bi bi-share-fill text-primary me-2"></i> Compartir Página de Descarga
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <div id="modalReleaseTitle" class="fw-bold fs-5 text-dark">Versión 1.0.0</div>
+                    <div id="modalReleaseSize" class="text-muted small">Tamaño: 250 MB</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-dark">Enlace a la Página de Descarga:</label>
+                    <div class="input-group mb-2">
+                        <input type="text" id="shareUrlInput" class="form-control-custom mono text-primary" readonly />
+                        <button class="btn btn-primary px-3 fw-bold" type="button" onclick="copyToClipboard(document.getElementById('shareUrlInput').value, this)">
+                            <i class="bi bi-clipboard me-1"></i> Copiar Enlace
+                        </button>
+                    </div>
+                    <div class="form-text text-muted">Este enlace abre la página pública oficial donde el usuario puede ver detalles y descargar.</div>
+                </div>
+
+                <div class="p-3 bg-light border rounded mb-2">
+                    <div class="text-muted small fw-semibold mb-1"><i class="bi bi-shield-check text-success me-1"></i> Integridad SHA256:</div>
+                    <div id="modalShareHash" class="mono text-dark small text-break">--</div>
+                </div>
+            </div>
+            <div class="modal-footer modal-footer-custom">
+                <a id="modalOpenLink" href="#" target="_blank" class="btn-secondary-custom me-auto">
+                    <i class="bi bi-box-arrow-up-right me-1"></i> Ver Página de Descarga
+                </a>
+                <button type="button" class="btn btn-secondary px-4 fw-semibold" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function openShareModal(version, title, landingUrl, directDownloadUrl, size, hash) {
+            document.getElementById('shareModalLabel').innerHTML = `<i class="bi bi-share-fill text-primary me-2"></i> Compartir Página de Descarga (${version})`;
+            document.getElementById('modalReleaseTitle').textContent = `${title} (${version})`;
+            document.getElementById('modalReleaseSize').textContent = `Tamaño de archivo: ${size}`;
+            document.getElementById('shareUrlInput').value = landingUrl;
+            document.getElementById('modalShareHash').textContent = hash;
+            document.getElementById('modalOpenLink').href = landingUrl;
+            
+            const shareModal = new bootstrap.Modal(document.getElementById('shareModal'));
+            shareModal.show();
+        }
+    </script>
+}

@@ -1,0 +1,168 @@
+@{
+    ViewData["Title"] = "Guía de Integración C#";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 fw-bold text-dark mb-1">Guía de Integración para Clientes C# / .NET</h1>
+        <p class="text-muted mb-0">Implementa la descarga de actualizaciones de 250 MB en tus aplicaciones o sistema POS.</p>
+    </div>
+    <a asp-action="Index" class="btn-secondary-custom">
+        <i class="bi bi-arrow-left me-1"></i> Volver al Dashboard
+    </a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-12">
+        <div class="glass-card mb-4">
+            <h2 class="h5 fw-bold text-dark mb-3">
+                <i class="bi bi-code-square me-2 text-primary"></i> Endpoints API Disponibles
+            </h2>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="p-3 rounded bg-light border">
+                        <span class="badge bg-primary mb-2">GET</span>
+                        <div class="mono fw-bold text-dark mb-1">/api/updates/latest</div>
+                        <div class="text-muted small">Obtiene JSON con la última versión disponible y hash SHA256.</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 rounded bg-light border">
+                        <span class="badge bg-primary mb-2">GET</span>
+                        <div class="mono fw-bold text-dark mb-1">/api/updates/check?currentVersion=1.0.0</div>
+                        <div class="text-muted small">Retorna 200 con detalles si hay versión superior, o 204 si está al día.</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 rounded bg-light border">
+                        <span class="badge bg-primary mb-2">GET</span>
+                        <div class="mono fw-bold text-dark mb-1">/api/updates/download/{fileName}</div>
+                        <div class="text-muted small">Descarga el ejecutable con soporte para HTTP Range (descargas reanudables).</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="h5 fw-bold text-dark mb-0">
+                    <i class="bi bi-c-circle-fill text-primary me-2"></i> Código C# Auto-Updater con Reanudación de Descargas
+                </h2>
+                <button type="button" class="btn-secondary-custom" onclick="copyToClipboard(document.getElementById('csharpSnippet').innerText, this)">
+                    <i class="bi bi-clipboard me-1"></i> Copiar Código
+                </button>
+            </div>
+            
+            <p class="text-muted small mb-3">Servicio en C# con soporte para **HTTP Range (resume)**. Si la conexión de 250 MB se interrumpe, se reanuda automáticamente en el punto exacto.</p>
+
+            <pre class="p-3 rounded mono text-light" style="background: #0f172a; border: 1px solid var(--border-color); font-size: 0.85rem; max-height: 500px; overflow-y: auto;" id="csharpSnippet"><code>using System;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text.Json;
+using System.Threading.Tasks;
+using System.Diagnostics;
+
+public class AutoUpdaterService
+{
+    private readonly HttpClient _httpClient;
+    private readonly string _serverUrl;
+
+    public AutoUpdaterService(string serverUrl)
+    {
+        _serverUrl = serverUrl.TrimEnd('/');
+        _httpClient = new HttpClient();
+    }
+
+    public async Task CheckAndApplyUpdateAsync(string currentVersion, Action&lt;double, string&gt; onProgress = null)
+    {
+        string checkUrl = $"{_serverUrl}/api/updates/check?currentVersion={currentVersion}";
+        var response = await _httpClient.GetAsync(checkUrl);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+        {
+            Console.WriteLine("El sistema ya está actualizado a la última versión.");
+            return;
+        }
+
+        response.EnsureSuccessStatusCode();
+        string json = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        string latestVersion = root.GetProperty("version").GetString();
+        string downloadUrl = root.GetProperty("downloadUrl").GetString();
+        string expectedSha256 = root.GetProperty("sha256Hash").GetString();
+        long totalBytes = root.GetProperty("fileSizeBytes").GetInt64();
+        string fileName = root.GetProperty("fileName").GetString();
+
+        string tempFilePath = Path.Combine(Path.GetTempPath(), fileName);
+
+        // 1. Soporte para reanudar descarga si ya existían MB descargados
+        long existingLength = File.Exists(tempFilePath) ? new FileInfo(tempFilePath).Length : 0;
+
+        using (var request = new HttpRequestMessage(HttpMethod.Get, downloadUrl))
+        {
+            if (existingLength > 0 && existingLength < totalBytes)
+            {
+                request.Headers.Range = new RangeHeaderValue(existingLength, null);
+                Console.WriteLine($"Reanudando descarga de {existingLength / (1024.0 * 1024.0):F1} MB...");
+            }
+
+            using var downloadResponse = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+            downloadResponse.EnsureSuccessStatusCode();
+
+            using var streamToReadFrom = await downloadResponse.Content.ReadAsStreamAsync();
+            using var streamToWriteTo = new FileStream(tempFilePath, existingLength > 0 ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.None);
+
+            byte[] buffer = new byte[81920];
+            long totalRead = existingLength;
+            int bytesRead;
+
+            while ((bytesRead = await streamToReadFrom.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            {
+                await streamToWriteTo.WriteAsync(buffer, 0, bytesRead);
+                totalRead += bytesRead;
+
+                if (totalBytes > 0 && onProgress != null)
+                {
+                    double percent = (double)totalRead / totalBytes * 100.0;
+                    string speedText = $"{totalRead / (1024.0 * 1024.0):F1} MB / {totalBytes / (1024.0 * 1024.0):F1} MB";
+                    onProgress(percent, speedText);
+                }
+            }
+        }
+
+        // 2. Verificar Hash SHA256
+        string computedHash = ComputeSha256(tempFilePath);
+        if (!computedHash.Equals(expectedSha256, StringComparison.OrdinalIgnoreCase))
+        {
+            File.Delete(tempFilePath);
+            throw new InvalidDataException("La verificación SHA256 falló. El archivo está dañado.");
+        }
+
+        Console.WriteLine("Integridad SHA256 verificada. Ejecutando instalador...");
+
+        // 3. Ejecutar instalador silencioso
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = tempFilePath,
+            Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+            UseShellExecute = true
+        });
+
+        Environment.Exit(0);
+    }
+
+    private static string ComputeSha256(string filePath)
+    {
+        using var sha256 = SHA256.Create();
+        using var stream = File.OpenRead(filePath);
+        byte[] hash = sha256.ComputeHash(stream);
+        return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+    }
+}</code></pre>
+        </div>
+    </div>
+</div>
